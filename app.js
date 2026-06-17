@@ -11,14 +11,17 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const d = JSON.parse(raw);
-      // Migration: ältere Projekte ohne pinned-Feld auf der Startseite zeigen
-      (d.projects || []).forEach(p => { if (p.pinned === undefined) p.pinned = true; });
+      // Migration: pinned + tasks-Feld nachrüsten
+      (d.projects || []).forEach(p => {
+        if (p.pinned === undefined) p.pinned = true;
+        if (!Array.isArray(p.tasks)) p.tasks = [];
+      });
       d.meta = d.meta || {};
       return d;
     }
   } catch (e) { console.warn('load failed', e); }
   return {
-    projects: [{ id: uid(), name: 'Allgemein', color: '#6366f1', pinned: true }],
+    projects: [{ id: uid(), name: 'Allgemein', color: '#6366f1', pinned: true, tasks: [] }],
     entries: [],
     meta: {}
   };
@@ -89,13 +92,28 @@ function startOfMonth(d) {
 function project(id) {
   return data.projects.find(p => p.id === id) || { name: '—', color: '#64748b' };
 }
+function findTask(projectId, taskId) {
+  const p = data.projects.find(x => x.id === projectId);
+  return p ? (p.tasks || []).find(t => t.id === taskId) || null : null;
+}
+function taskName(projectId, taskId) {
+  const t = taskId ? findTask(projectId, taskId) : null;
+  return t ? t.name : '';
+}
+function taskOptions(projectId, selectedId) {
+  const p = data.projects.find(x => x.id === projectId);
+  const tasks = (p && p.tasks) || [];
+  selectedId = selectedId || '';
+  return '<option value=""' + (selectedId === '' ? ' selected' : '') + '>— (ganzes Boot)</option>' +
+    tasks.map(t => `<option value="${t.id}"${t.id === selectedId ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
+}
 
 /* ---------- Tracker-Aktionen ---------- */
-function startShift(projectId) {
+function startShift(projectId, taskId = null) {
   if (getRunning()) return;            // bereits eingestempelt
   if (!data.projects.some(p => p.id === projectId)) return;
   data.entries.push({
-    id: uid(), projectId, start: Date.now(), end: null, breaks: [], note: ''
+    id: uid(), projectId, taskId: taskId || null, start: Date.now(), end: null, breaks: [], note: ''
   });
   save();
   renderAll();
@@ -110,16 +128,17 @@ function stopShift() {
   renderAll();
 }
 
-// Tipp auf einen Projekt-Button: starten, wechseln oder (gleiches Projekt) ausstempeln
-function selectProject(projectId) {
+// Tipp/Slide: starten, wechseln oder (gleiches Boot + gleiche Aufgabe) ausstempeln
+function selectProject(projectId, taskId = null) {
   if (!data.projects.some(p => p.id === projectId)) return;
+  taskId = taskId || null;
   const running = getRunning();
-  if (!running) { startShift(projectId); return; }
-  if (running.projectId === projectId) { stopShift(); return; }  // gleiches Projekt -> Stopp
+  if (!running) { startShift(projectId, taskId); return; }
+  if (running.projectId === projectId && (running.taskId || null) === taskId) { stopShift(); return; }
   const br = activeBreak(running);                                // Wechsel: alte Schicht beenden,
   if (br) br.end = Date.now();
   running.end = Date.now();
-  data.entries.push({ id: uid(), projectId, start: Date.now(), end: null, breaks: [], note: '' });
+  data.entries.push({ id: uid(), projectId, taskId, start: Date.now(), end: null, breaks: [], note: '' });
   save();
   renderAll();
 }
@@ -159,8 +178,10 @@ function controlsHtml() {
   if (pinned.length) {
     html += '<div class="proj-grid">' + pinned.map(p => {
       const active = running && running.projectId === p.id;
-      const tag = active ? `<em class="run-tag">${br ? 'Pause' : 'läuft'}</em>` : '';
-      return `<button class="proj-btn${active ? ' active' : ''}" data-start="${p.id}" style="--c:${p.color}"><span>${esc(p.name)}</span>${tag}</button>`;
+      const runLabel = br ? 'Pause' : (running && running.taskId ? esc(taskName(p.id, running.taskId)) || 'läuft' : 'läuft');
+      const tag = active ? `<em class="run-tag">${runLabel}</em>` : '';
+      const hint = (!active && (p.tasks || []).length) ? '<i class="hold-hint">halten ⋯</i>' : '';
+      return `<button class="proj-btn${active ? ' active' : ''}" data-start="${p.id}" style="--c:${p.color}"><span>${esc(p.name)}</span>${tag}${hint}</button>`;
     }).join('') + '</div>';
   } else if (!running) {
     html += '<div class="empty">Markiere unter „Projekte“ Projekte für die Startseite.</div>';
@@ -229,10 +250,12 @@ function entryRow(e) {
   const bm = breakMs(e, now);
   const timeStr = fmtClock(e.start) + ' – ' + (e.end ? fmtClock(e.end) : 'läuft') +
     (bm >= MIN ? '  ·  Pause ' + fmtHM(bm) : '') + (e.note ? '  ·  ' + esc(e.note) : '');
+  const tName = e.taskId ? taskName(e.projectId, e.taskId) : '';
+  const projLine = esc(p.name) + (tName ? ' · ' + esc(tName) : '');
   return `<div class="entry${live ? ' live' : ''}" data-id="${e.id}">
       <span class="dot" style="background:${p.color}"></span>
       <div class="e-main">
-        <div class="e-proj">${esc(p.name)}</div>
+        <div class="e-proj">${projLine}</div>
         <div class="e-time">${timeStr}</div>
       </div>
       <div class="e-dur" data-dur>${fmtHM(netMs(e, now))}</div>
@@ -294,17 +317,28 @@ function renderReport() {
 
 function renderProjects() {
   const cont = document.getElementById('projectList');
-  cont.innerHTML = data.projects.map(p => `
-    <div class="project-row" data-pid="${p.id}">
-      <input type="color" value="${p.color}" data-color="${p.id}" />
-      <span class="p-name">${esc(p.name)}</span>
-      <label class="pin" title="Auf Startseite anzeigen">
-        <input type="checkbox" data-pin="${p.id}"${p.pinned ? ' checked' : ''} />
-        <span>Start</span>
-      </label>
-      <button class="icon-btn" data-rename="${p.id}" aria-label="Umbenennen">✎</button>
-      <button class="icon-btn danger" data-delproj="${p.id}" aria-label="Löschen">🗑</button>
-    </div>`).join('');
+  cont.innerHTML = data.projects.map(p => {
+    const chips = (p.tasks || []).map(t =>
+      `<span class="task-chip" data-task="${t.id}" data-tpid="${p.id}">${esc(t.name)}<button class="chip-x" data-deltask="${t.id}" data-tpid="${p.id}" aria-label="Aufgabe löschen">×</button></span>`
+    ).join('');
+    return `
+    <div class="project-card">
+      <div class="project-row" data-pid="${p.id}">
+        <input type="color" value="${p.color}" data-color="${p.id}" />
+        <span class="p-name">${esc(p.name)}</span>
+        <label class="pin" title="Auf Startseite anzeigen">
+          <input type="checkbox" data-pin="${p.id}"${p.pinned ? ' checked' : ''} />
+          <span>Start</span>
+        </label>
+        <button class="icon-btn" data-rename="${p.id}" aria-label="Umbenennen">✎</button>
+        <button class="icon-btn danger" data-delproj="${p.id}" aria-label="Löschen">🗑</button>
+      </div>
+      <div class="task-row">
+        ${chips}
+        <button class="task-add" data-addtask="${p.id}">+ Aufgabe</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderWeekTotal() {
@@ -358,6 +392,7 @@ function editEntryModal(id) {
   const bm = Math.round(breakMs(e, Date.now()) / MIN);
   openModal('Eintrag bearbeiten', `
     <div class="field"><label>Projekt</label><select id="m_proj">${projOpts}</select></div>
+    <div class="field"><label>Aufgabe</label><select id="m_task">${taskOptions(e.projectId, e.taskId || '')}</select></div>
     <div class="field"><label>Datum</label><input type="date" id="m_date" value="${dateVal}"></div>
     <div class="row2">
       <div class="field"><label>Start</label><input type="time" id="m_start" value="${fmtClock(e.start)}"></div>
@@ -372,6 +407,7 @@ function editEntryModal(id) {
     const en = document.getElementById('m_end').value;
     if (!date || !st) { alert('Datum und Start sind erforderlich.'); return false; }
     e.projectId = document.getElementById('m_proj').value;
+    e.taskId = document.getElementById('m_task').value || null;
     e.start = new Date(`${date}T${st}`).getTime();
     e.end = en ? new Date(`${date}T${en}`).getTime() : null;
     if (e.end && e.end < e.start) e.end += 24 * HOUR; // über Mitternacht
@@ -379,6 +415,9 @@ function editEntryModal(id) {
     e.breaks = brMin > 0 ? [{ start: e.start, end: e.start + brMin * MIN }] : [];
     e.note = document.getElementById('m_note').value.trim();
     save(); renderAll(); return true;
+  });
+  document.getElementById('m_proj').addEventListener('change', () => {
+    document.getElementById('m_task').innerHTML = taskOptions(document.getElementById('m_proj').value, '');
   });
   document.getElementById('m_delete').onclick = () => {
     if (confirm('Diesen Eintrag wirklich löschen?')) {
@@ -394,6 +433,7 @@ function addManualModal() {
   const dateVal = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   openModal('Eintrag hinzufügen', `
     <div class="field"><label>Projekt</label><select id="m_proj">${projOpts}</select></div>
+    <div class="field"><label>Aufgabe</label><select id="m_task">${taskOptions(data.projects[0] && data.projects[0].id, '')}</select></div>
     <div class="field"><label>Datum</label><input type="date" id="m_date" value="${dateVal}"></div>
     <div class="row2">
       <div class="field"><label>Start</label><input type="time" id="m_start" value="09:00"></div>
@@ -413,11 +453,15 @@ function addManualModal() {
     data.entries.push({
       id: uid(),
       projectId: document.getElementById('m_proj').value,
+      taskId: document.getElementById('m_task').value || null,
       start, end,
       breaks: brMin > 0 ? [{ start, end: start + brMin * MIN }] : [],
       note: document.getElementById('m_note').value.trim()
     });
     save(); renderAll(); return true;
+  });
+  document.getElementById('m_proj').addEventListener('change', () => {
+    document.getElementById('m_task').innerHTML = taskOptions(document.getElementById('m_proj').value, '');
   });
 }
 
@@ -428,7 +472,7 @@ function addProjectModal() {
     const name = document.getElementById('m_name').value.trim();
     if (!name) { alert('Bitte einen Namen eingeben.'); return false; }
     const color = DEFAULT_COLORS[data.projects.length % DEFAULT_COLORS.length];
-    data.projects.push({ id: uid(), name, color, pinned: true });
+    data.projects.push({ id: uid(), name, color, pinned: true, tasks: [] });
     markProjectsChanged(); save(); renderAll(); return true;
   });
 }
@@ -454,7 +498,7 @@ function exportCsv() {
     .sort((a, b) => a.start - b.start);
   if (!rows.length) { alert('Keine abgeschlossenen Einträge in diesem Zeitraum.'); return; }
 
-  const head = ['Datum', 'Projekt', 'Start', 'Ende', 'Pause (min)', 'Netto (h)', 'Netto (hh:mm)', 'Notiz'];
+  const head = ['Datum', 'Projekt', 'Aufgabe', 'Start', 'Ende', 'Pause (min)', 'Netto (h)', 'Netto (hh:mm)', 'Notiz'];
   const lines = [head.join(';')];
   for (const e of rows) {
     const bm = Math.round(breakMs(e) / MIN);
@@ -463,6 +507,7 @@ function exportCsv() {
     lines.push([
       new Date(e.start).toLocaleDateString('de-DE'),
       csv(project(e.projectId).name),
+      csv(taskName(e.projectId, e.taskId)),
       fmtClock(e.start), fmtClock(e.end),
       bm, hoursDec, fmtHM(net), csv(e.note || '')
     ].join(';'));
@@ -574,6 +619,147 @@ function renderBackup() {
   if (info) info.textContent = 'Zuletzt gesichert: ' + (nice || 'nie');
 }
 
+/* ---------- Aufgaben verwalten ---------- */
+function addTaskModal(pid) {
+  const p = data.projects.find(x => x.id === pid);
+  if (!p) return;
+  openModal('Aufgabe hinzufügen', `
+    <div class="field"><label>Aufgabe für „${esc(p.name)}“</label><input type="text" id="m_tname" placeholder="z. B. Rumpf schleifen"></div>
+  `, () => {
+    const name = document.getElementById('m_tname').value.trim();
+    if (!name) return false;
+    (p.tasks = p.tasks || []).push({ id: uid(), name });
+    markProjectsChanged(); save(); renderAll(); return true;
+  });
+}
+function renameTaskModal(pid, tid) {
+  const p = data.projects.find(x => x.id === pid);
+  const t = p && (p.tasks || []).find(x => x.id === tid);
+  if (!t) return;
+  openModal('Aufgabe umbenennen', `
+    <div class="field"><label>Name</label><input type="text" id="m_tname" value="${esc(t.name)}"></div>
+  `, () => {
+    const name = document.getElementById('m_tname').value.trim();
+    if (!name) return false;
+    t.name = name; markProjectsChanged(); save(); renderAll(); return true;
+  });
+}
+function deleteTask(pid, tid) {
+  const p = data.projects.find(x => x.id === pid);
+  if (!p) return;
+  if (!confirm('Aufgabe löschen? Bereits erfasste Einträge behalten ihre Zeit, verlieren aber die Aufgaben-Zuordnung.')) return;
+  p.tasks = (p.tasks || []).filter(t => t.id !== tid);
+  markProjectsChanged(); save(); renderAll();
+}
+
+/* ---------- Halten + Slide: Aufgabe starten ---------- */
+let press = null;
+let suppressClick = false;
+
+function onProjPointerDown(ev) {
+  const btn = ev.target.closest('.proj-btn');
+  if (!btn) return;
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+  const projectId = btn.dataset.start;
+  const p = data.projects.find(x => x.id === projectId);
+  press = { projectId, x0: ev.clientX, y0: ev.clientY, opened: false, sel: null, holdTimer: null };
+  if (p && (p.tasks || []).length) {
+    press.holdTimer = setTimeout(() => openSlide(projectId, btn), 280);
+  }
+  document.addEventListener('pointermove', onProjPointerMove, { passive: false });
+  document.addEventListener('pointerup', onProjPointerUp);
+  document.addEventListener('pointercancel', onProjPointerCancel);
+}
+function onProjPointerMove(ev) {
+  if (!press) return;
+  if (!press.opened) {
+    const dx = ev.clientX - press.x0, dy = ev.clientY - press.y0;
+    if (dx * dx + dy * dy > 100) { clearTimeout(press.holdTimer); endPress(); } // früh bewegt -> kein Menü
+    return;
+  }
+  ev.preventDefault();
+  highlightSlideAt(ev.clientX, ev.clientY);
+}
+function onProjPointerUp(ev) {
+  if (!press) return;
+  clearTimeout(press.holdTimer);
+  if (press.opened) {
+    highlightSlideAt(ev.clientX, ev.clientY);
+    const sel = press.sel;
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 500);
+    closeSlide();
+    if (sel) selectProject(sel.projectId, sel.taskId);
+  }
+  endPress();
+}
+function onProjPointerCancel() {
+  if (!press) return;
+  clearTimeout(press.holdTimer);
+  if (press.opened) {
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 500);
+    closeSlide();
+  }
+  endPress();
+}
+function endPress() {
+  document.removeEventListener('pointermove', onProjPointerMove);
+  document.removeEventListener('pointerup', onProjPointerUp);
+  document.removeEventListener('pointercancel', onProjPointerCancel);
+  press = null;
+}
+
+function openSlide(projectId, btn) {
+  if (!press) return;
+  const p = data.projects.find(x => x.id === projectId);
+  if (!p) return;
+  press.opened = true;
+  if (navigator.vibrate) navigator.vibrate(15);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'slide-overlay';
+  overlay.id = 'slideOverlay';
+  const menu = document.createElement('div');
+  menu.className = 'slide-menu';
+  let items = `<div class="slide-head" style="border-color:${p.color}">${esc(p.name)}</div>`;
+  items += `<div class="slide-item" data-pid="${p.id}" data-tid="">⏱ Ganzes Boot</div>`;
+  items += (p.tasks || []).map(t => `<div class="slide-item" data-pid="${p.id}" data-tid="${t.id}">${esc(t.name)}</div>`).join('');
+  items += `<div class="slide-item slide-cancel" data-pid="" data-tid="">✕ Abbrechen</div>`;
+  menu.innerHTML = items;
+  overlay.appendChild(menu);
+  document.body.appendChild(overlay);
+
+  const r = btn.getBoundingClientRect();
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  let left = r.left + r.width / 2 - mw / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+  let top = r.top - mh - 8;
+  if (top < 8) top = Math.min(r.bottom + 8, window.innerHeight - mh - 8);
+  menu.style.left = left + 'px';
+  menu.style.top = Math.max(8, top) + 'px';
+
+  setHighlight(menu.querySelector('.slide-item'));   // Standard: „Ganzes Boot“
+}
+function setHighlight(item) {
+  const menu = document.querySelector('.slide-menu');
+  if (!menu || !press) return;
+  menu.querySelectorAll('.slide-item.hl').forEach(el => el.classList.remove('hl'));
+  if (item) {
+    item.classList.add('hl');
+    press.sel = { projectId: item.dataset.pid, taskId: item.dataset.tid || null };
+  }
+}
+function highlightSlideAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const item = el && el.closest ? el.closest('.slide-item') : null;
+  if (item) setHighlight(item);   // sticky: zwischen Items bleibt letzte Auswahl
+}
+function closeSlide() {
+  const o = document.getElementById('slideOverlay');
+  if (o) o.remove();
+}
+
 /* ---------- Navigation & Events ---------- */
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.hidden = v.id !== 'view-' + name);
@@ -596,6 +782,8 @@ document.getElementById('restoreFile').addEventListener('change', (ev) => {
 document.getElementById('backupBarSave').addEventListener('click', exportBackup);
 document.getElementById('backupBarDismiss').addEventListener('click', dismissBackupBanner);
 
+document.getElementById('trackerControls').addEventListener('pointerdown', onProjPointerDown);
+
 document.getElementById('modalCancel').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', (ev) => {
   if (ev.target.id === 'modalOverlay') closeModal();
@@ -606,6 +794,7 @@ document.getElementById('modalOk').addEventListener('click', () => {
 
 // Delegation: Einträge bearbeiten + Projektaktionen
 document.getElementById('main').addEventListener('click', (ev) => {
+  if (suppressClick) { suppressClick = false; return; }   // Klick nach Slide-Auswahl ignorieren
   const startBtn = ev.target.closest('[data-start]');
   if (startBtn) { selectProject(startBtn.dataset.start); return; }
   const act = ev.target.closest('[data-action]');
@@ -626,7 +815,14 @@ document.getElementById('main').addEventListener('click', (ev) => {
     if (used && !confirm('Diesem Projekt sind Einträge zugeordnet. Trotzdem löschen? (Einträge bleiben erhalten, werden aber „—“ angezeigt.)')) return;
     data.projects = data.projects.filter(p => p.id !== id);
     markProjectsChanged(); save(); renderAll();
+    return;
   }
+  const addtask = ev.target.closest('[data-addtask]');
+  if (addtask) { addTaskModal(addtask.dataset.addtask); return; }
+  const deltask = ev.target.closest('[data-deltask]');
+  if (deltask) { deleteTask(deltask.dataset.tpid, deltask.dataset.deltask); return; }
+  const chip = ev.target.closest('[data-task]');
+  if (chip) { renameTaskModal(chip.dataset.tpid, chip.dataset.task); return; }
 });
 document.getElementById('main').addEventListener('change', (ev) => {
   const col = ev.target.closest('[data-color]');
