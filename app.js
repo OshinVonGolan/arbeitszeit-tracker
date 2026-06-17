@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v10';
+const APP_VERSION = 'v11';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -623,6 +623,15 @@ function renderBackup() {
   if (info) info.textContent = 'Zuletzt gesichert: ' + (nice || 'nie');
 }
 
+function resetEntries() {
+  const n = data.entries.length;
+  if (!n) { alert('Es gibt keine Zeiteinträge zum Löschen.'); return; }
+  if (!confirm(`Wirklich ALLE ${n} Zeiteinträge unwiderruflich löschen?\n\nProjekte und Aufgaben bleiben erhalten.\nTipp: vorher ein Backup sichern.`)) return;
+  data.entries = [];
+  save();
+  renderAll();
+}
+
 /* ---------- Aufgaben verwalten ---------- */
 function addTaskModal(pid) {
   const p = data.projects.find(x => x.id === pid);
@@ -806,6 +815,7 @@ document.getElementById('periodSelect').addEventListener('change', renderReport)
 
 document.getElementById('btnBackup').addEventListener('click', exportBackup);
 document.getElementById('btnRestore').addEventListener('click', () => document.getElementById('restoreFile').click());
+document.getElementById('btnResetEntries').addEventListener('click', resetEntries);
 document.getElementById('restoreFile').addEventListener('change', (ev) => {
   const f = ev.target.files && ev.target.files[0];
   if (f) importBackup(f);

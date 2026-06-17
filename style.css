@@ -194,6 +194,7 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .btn-resume{ background: linear-gradient(135deg, #38bdf8, #0ea5e9); color: #06212f; }
 .btn-accent { background: linear-gradient(135deg, var(--accent), var(--accent-d)); }
 .btn-export { background: linear-gradient(135deg, var(--accent), var(--accent-d)); margin-top: 18px; }
+.btn-danger { background: linear-gradient(135deg, var(--red), #dc2626); }
 .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); padding: 9px 14px; font-size: 0.92rem; }
 .btn-danger-ghost { background: transparent; border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; }
 
