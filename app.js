@@ -178,10 +178,12 @@ function controlsHtml() {
   if (pinned.length) {
     html += '<div class="proj-grid">' + pinned.map(p => {
       const active = running && running.projectId === p.id;
-      const runLabel = br ? 'Pause' : (running && running.taskId ? esc(taskName(p.id, running.taskId)) || 'läuft' : 'läuft');
-      const tag = active ? `<em class="run-tag">${runLabel}</em>` : '';
-      const hint = (!active && (p.tasks || []).length) ? '<i class="hold-hint">halten ⋯</i>' : '';
-      return `<button class="proj-btn${active ? ' active' : ''}" data-start="${p.id}" style="--c:${p.color}"><span>${esc(p.name)}</span>${tag}${hint}</button>`;
+      const runTask = active && running.taskId ? taskName(p.id, running.taskId) : '';
+      const sub = runTask ? `<span class="pb-sub">${esc(runTask)}</span>` : '';
+      const badge = active
+        ? `<em class="run-tag">${br ? 'Pause' : 'läuft'}</em>`
+        : ((p.tasks || []).length ? '<i class="hold-hint">halten ⋯</i>' : '');
+      return `<button class="proj-btn${active ? ' active' : ''}" data-start="${p.id}" style="--c:${p.color}"><span class="pb-main"><span class="pb-name">${esc(p.name)}</span>${sub}</span>${badge}</button>`;
     }).join('') + '</div>';
   } else if (!running) {
     html += '<div class="empty">Markiere unter „Projekte“ Projekte für die Startseite.</div>';
@@ -662,9 +664,10 @@ function onProjPointerDown(ev) {
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   const projectId = btn.dataset.start;
   const p = data.projects.find(x => x.id === projectId);
-  press = { projectId, x0: ev.clientX, y0: ev.clientY, opened: false, sel: null, holdTimer: null };
-  if (p && (p.tasks || []).length) {
-    press.holdTimer = setTimeout(() => openSlide(projectId, btn), 280);
+  const hasTasks = !!(p && (p.tasks || []).length);
+  press = { projectId, btn, hasTasks, x0: ev.clientX, y0: ev.clientY, opened: false, sel: null, holdTimer: null };
+  if (hasTasks) {
+    press.holdTimer = setTimeout(() => openSlide(projectId, btn), 250);
   }
   document.addEventListener('pointermove', onProjPointerMove, { passive: false });
   document.addEventListener('pointerup', onProjPointerUp);
@@ -673,8 +676,12 @@ function onProjPointerDown(ev) {
 function onProjPointerMove(ev) {
   if (!press) return;
   if (!press.opened) {
+    if (!press.hasTasks) return;                  // ohne Aufgaben: normaler Tipp
     const dx = ev.clientX - press.x0, dy = ev.clientY - press.y0;
-    if (dx * dx + dy * dy > 100) { clearTimeout(press.holdTimer); endPress(); } // früh bewegt -> kein Menü
+    if (dx * dx + dy * dy > 36) {                 // ~6px Bewegung = Slide-Absicht -> sofort öffnen
+      clearTimeout(press.holdTimer);
+      openSlide(press.projectId, press.btn);
+    }
     return;
   }
   ev.preventDefault();
@@ -711,7 +718,7 @@ function endPress() {
 }
 
 function openSlide(projectId, btn) {
-  if (!press) return;
+  if (!press || press.opened) return;
   const p = data.projects.find(x => x.id === projectId);
   if (!p) return;
   press.opened = true;
@@ -720,6 +727,7 @@ function openSlide(projectId, btn) {
   const overlay = document.createElement('div');
   overlay.className = 'slide-overlay';
   overlay.id = 'slideOverlay';
+  overlay.oncontextmenu = (e) => e.preventDefault();
   const menu = document.createElement('div');
   menu.className = 'slide-menu';
   let items = `<div class="slide-head" style="border-color:${p.color}">${esc(p.name)}</div>`;
@@ -783,6 +791,9 @@ document.getElementById('backupBarSave').addEventListener('click', exportBackup)
 document.getElementById('backupBarDismiss').addEventListener('click', dismissBackupBanner);
 
 document.getElementById('trackerControls').addEventListener('pointerdown', onProjPointerDown);
+document.getElementById('trackerControls').addEventListener('contextmenu', (e) => {
+  if (e.target.closest('.proj-btn')) e.preventDefault();   // Langdruck-Menü unterdrücken
+});
 
 document.getElementById('modalCancel').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', (ev) => {
