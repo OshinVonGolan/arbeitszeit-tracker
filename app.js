@@ -1,5 +1,7 @@
 'use strict';
 
+const APP_VERSION = 'v8';
+
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
 const DEFAULT_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e', '#8b5cf6', '#0ea5e9'];
@@ -867,5 +869,8 @@ if ('serviceWorker' in navigator) {
     } catch (e) { /* offline o. ä. */ }
   });
 }
+
+const _av = document.getElementById('appVersion');
+if (_av) _av.textContent = 'Arbeitszeit-Tracker · ' + APP_VERSION;
 
 renderAll();

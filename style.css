@@ -270,6 +270,7 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .backup-info { color: var(--muted); font-size: 0.9rem; margin: 4px 4px 12px; }
 
 .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 0.95rem; }
+.app-version { text-align: center; color: var(--muted); font-size: 0.72rem; opacity: 0.55; margin: 22px 0 4px; }
 [hidden] { display: none !important; }
 
 /* Tabbar */
