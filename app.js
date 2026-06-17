@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v9';
+const APP_VERSION = 'v10';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -817,6 +817,9 @@ document.getElementById('backupBarDismiss').addEventListener('click', dismissBac
 document.getElementById('trackerControls').addEventListener('pointerdown', onProjPointerDown);
 document.getElementById('trackerControls').addEventListener('contextmenu', (e) => {
   if (e.target.closest('.proj-btn')) e.preventDefault();   // Langdruck-Menü unterdrücken
+});
+document.addEventListener('selectstart', (e) => {
+  if (press || document.getElementById('slideOverlay')) e.preventDefault();  // keine Textmarkierung beim Halten/Sliden
 });
 
 document.getElementById('modalCancel').addEventListener('click', closeModal);
