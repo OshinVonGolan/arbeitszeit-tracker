@@ -18,6 +18,12 @@
     <span id="weekTotal" class="appbar-sub">–</span>
   </header>
 
+  <div id="backupBar" class="backup-bar" hidden>
+    <span id="backupBarText" class="backup-bar-text">Backup empfohlen</span>
+    <button id="backupBarSave" class="backup-bar-btn">Sichern</button>
+    <button id="backupBarDismiss" class="backup-bar-x" aria-label="Ausblenden">×</button>
+  </div>
+
   <main id="main">
     <!-- Tracker -->
     <section id="view-tracker" class="view">
@@ -61,6 +67,12 @@
       </div>
       <div id="reportByProject" class="report-list"></div>
       <button id="btnExport" class="btn btn-block btn-export">CSV exportieren</button>
+
+      <h2 class="section-title">Backup</h2>
+      <div id="backupInfo" class="backup-info">Zuletzt gesichert: nie</div>
+      <button id="btnBackup" class="btn btn-block btn-accent">Backup sichern / teilen</button>
+      <button id="btnRestore" class="btn btn-block btn-ghost" style="margin-top:10px">Aus Datei wiederherstellen</button>
+      <input type="file" id="restoreFile" accept="application/json,.json" hidden />
     </section>
 
     <!-- Projekte -->

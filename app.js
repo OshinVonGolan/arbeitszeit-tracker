@@ -13,16 +13,27 @@ function load() {
       const d = JSON.parse(raw);
       // Migration: ältere Projekte ohne pinned-Feld auf der Startseite zeigen
       (d.projects || []).forEach(p => { if (p.pinned === undefined) p.pinned = true; });
+      d.meta = d.meta || {};
       return d;
     }
   } catch (e) { console.warn('load failed', e); }
   return {
     projects: [{ id: uid(), name: 'Allgemein', color: '#6366f1', pinned: true }],
-    entries: []
+    entries: [],
+    meta: {}
   };
 }
-function save() {
+function persist() {
   localStorage.setItem(STORE_KEY, JSON.stringify(data));
+}
+function save() {
+  data.meta = data.meta || {};
+  data.meta.updatedAt = Date.now();   // „seit letztem Backup geändert“-Marke
+  persist();
+}
+function markProjectsChanged() {
+  data.meta = data.meta || {};
+  data.meta.projectsChangedAt = Date.now();
 }
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -132,6 +143,7 @@ function renderAll() {
   renderReport();
   renderProjects();
   renderWeekTotal();
+  renderBackup();
   setupTick();
 }
 
@@ -416,8 +428,8 @@ function addProjectModal() {
     const name = document.getElementById('m_name').value.trim();
     if (!name) { alert('Bitte einen Namen eingeben.'); return false; }
     const color = DEFAULT_COLORS[data.projects.length % DEFAULT_COLORS.length];
-    data.projects.push({ id: uid(), name, color });
-    save(); renderAll(); return true;
+    data.projects.push({ id: uid(), name, color, pinned: true });
+    markProjectsChanged(); save(); renderAll(); return true;
   });
 }
 
@@ -429,7 +441,7 @@ function renameProjectModal(id) {
   `, () => {
     const name = document.getElementById('m_name').value.trim();
     if (!name) return false;
-    p.name = name; save(); renderAll(); return true;
+    p.name = name; markProjectsChanged(); save(); renderAll(); return true;
   });
 }
 
@@ -466,6 +478,102 @@ function exportCsv() {
 function csv(s) { return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+/* ---------- Backup (JSON) + Erinnerung ---------- */
+function backupPayload() {
+  return JSON.stringify({
+    app: 'arbeitszeit-tracker',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: { projects: data.projects, entries: data.entries }
+  }, null, 2);
+}
+
+async function exportBackup() {
+  const fname = `arbeitszeit-backup-${dayKey(Date.now())}.json`;
+  const text = backupPayload();
+  // Bevorzugt teilen (Drive/Mail/…), sonst Download
+  try {
+    const file = new File([text], fname, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Arbeitszeit-Backup' });
+      markBackedUp();
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;   // Teilen abgebrochen -> nicht als gesichert markieren
+    // sonstiger Fehler -> Fallback Download
+  }
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  markBackedUp();
+}
+
+function importBackup(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const d = parsed && parsed.data ? parsed.data : parsed;   // toleriert beide Formate
+      if (!d || !Array.isArray(d.projects) || !Array.isArray(d.entries))
+        throw new Error('Unerwartetes Dateiformat');
+      if (!confirm(`Backup einspielen?\n\nProjekte: ${d.projects.length}\nEinträge: ${d.entries.length}\n\nDie aktuellen Daten auf diesem Gerät werden ersetzt.`)) return;
+      data.projects = d.projects;
+      data.entries = d.entries;
+      data.projects.forEach(p => { if (p.pinned === undefined) p.pinned = true; });
+      save();
+      data.meta.lastBackupAt = data.meta.updatedAt;   // eingespielter Stand = Datei
+      persist();
+      renderAll();
+      alert('Backup wiederhergestellt.');
+    } catch (e) {
+      alert('Konnte die Datei nicht lesen: ' + e.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function markBackedUp() {
+  data.meta = data.meta || {};
+  data.meta.lastBackupAt = data.meta.updatedAt || Date.now();
+  persist();
+  renderBackup();
+}
+
+function backupDue() {
+  const m = data.meta || {};
+  const hasContent = data.entries.length > 0 || data.projects.length > 1;
+  if (!hasContent) return false;
+  const today = dayKey(Date.now());
+  const dailyDue = (!m.lastBackupAt || dayKey(m.lastBackupAt) !== today) && m.bannerDismissDay !== today;
+  const projDue = (m.projectsChangedAt || 0) > (m.lastBackupAt || 0) && (m.projectsChangedAt || 0) > (m.bannerDismissProj || 0);
+  return dailyDue || projDue;
+}
+
+function dismissBackupBanner() {
+  const m = data.meta = data.meta || {};
+  m.bannerDismissDay = dayKey(Date.now());
+  m.bannerDismissProj = m.projectsChangedAt || 0;
+  persist();
+  renderBackup();
+}
+
+function renderBackup() {
+  const t = (data.meta || {}).lastBackupAt;
+  const nice = t ? new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null;
+  const bar = document.getElementById('backupBar');
+  if (bar) {
+    bar.hidden = !backupDue();
+    const txt = document.getElementById('backupBarText');
+    if (txt) txt.textContent = 'Backup empfohlen · ' + (nice ? 'zuletzt ' + nice : 'noch nie gesichert');
+  }
+  const info = document.getElementById('backupInfo');
+  if (info) info.textContent = 'Zuletzt gesichert: ' + (nice || 'nie');
+}
+
 /* ---------- Navigation & Events ---------- */
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.hidden = v.id !== 'view-' + name);
@@ -477,6 +585,16 @@ document.getElementById('btnAddManual').addEventListener('click', addManualModal
 document.getElementById('btnAddProject').addEventListener('click', addProjectModal);
 document.getElementById('btnExport').addEventListener('click', exportCsv);
 document.getElementById('periodSelect').addEventListener('change', renderReport);
+
+document.getElementById('btnBackup').addEventListener('click', exportBackup);
+document.getElementById('btnRestore').addEventListener('click', () => document.getElementById('restoreFile').click());
+document.getElementById('restoreFile').addEventListener('change', (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  if (f) importBackup(f);
+  ev.target.value = '';
+});
+document.getElementById('backupBarSave').addEventListener('click', exportBackup);
+document.getElementById('backupBarDismiss').addEventListener('click', dismissBackupBanner);
 
 document.getElementById('modalCancel').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', (ev) => {
@@ -507,7 +625,7 @@ document.getElementById('main').addEventListener('click', (ev) => {
     const used = data.entries.some(e => e.projectId === id);
     if (used && !confirm('Diesem Projekt sind Einträge zugeordnet. Trotzdem löschen? (Einträge bleiben erhalten, werden aber „—“ angezeigt.)')) return;
     data.projects = data.projects.filter(p => p.id !== id);
-    save(); renderAll();
+    markProjectsChanged(); save(); renderAll();
   }
 });
 document.getElementById('main').addEventListener('change', (ev) => {

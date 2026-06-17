@@ -204,6 +204,22 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .toolbar .section-title { margin: 18px 4px 12px; }
 .period-select { width: auto; padding: 8px 12px; }
 
+/* Backup-Erinnerung + Bereich */
+.backup-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #b45309, #92400e);
+  color: #fff; font-size: 0.9rem;
+}
+.backup-bar-text { flex: 1; min-width: 0; }
+.backup-bar-btn {
+  flex: 0 0 auto; background: rgba(255,255,255,0.95); color: #7c2d12;
+  border: none; border-radius: 999px; padding: 6px 14px;
+  font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.backup-bar-x { flex: 0 0 auto; background: none; border: none; color: #fff; font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0 4px; }
+.backup-info { color: var(--muted); font-size: 0.9rem; margin: 4px 4px 12px; }
+
 .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 0.95rem; }
 [hidden] { display: none !important; }
 
