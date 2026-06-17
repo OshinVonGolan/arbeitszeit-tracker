@@ -143,6 +143,7 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
   border-bottom: 2px solid var(--accent);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.slide-head small { display: block; font-weight: 500; font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
 .slide-item {
   padding: 15px 14px; border-radius: 10px;
   font-size: 1.02rem; font-weight: 600; color: var(--text);

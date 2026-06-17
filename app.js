@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v9';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -659,6 +659,7 @@ function deleteTask(pid, tid) {
 /* ---------- Halten + Slide: Aufgabe starten ---------- */
 let press = null;
 let suppressClick = false;
+let slideOpenedAt = 0;
 
 function onProjPointerDown(ev) {
   const btn = ev.target.closest('.proj-btn');
@@ -667,6 +668,7 @@ function onProjPointerDown(ev) {
   const projectId = btn.dataset.start;
   const p = data.projects.find(x => x.id === projectId);
   const hasTasks = !!(p && (p.tasks || []).length);
+  try { btn.setPointerCapture(ev.pointerId); } catch (e) {}
   press = { projectId, btn, hasTasks, x0: ev.clientX, y0: ev.clientY, opened: false, sel: null, holdTimer: null };
   if (hasTasks) {
     press.holdTimer = setTimeout(() => openSlide(projectId, btn), 250);
@@ -693,12 +695,16 @@ function onProjPointerUp(ev) {
   if (!press) return;
   clearTimeout(press.holdTimer);
   if (press.opened) {
-    highlightSlideAt(ev.clientX, ev.clientY);
-    const sel = press.sel;
     suppressClick = true;
-    setTimeout(() => { suppressClick = false; }, 500);
-    closeSlide();
-    if (sel) selectProject(sel.projectId, sel.taskId);
+    setTimeout(() => { suppressClick = false; }, 600);
+    // Finger beim Loslassen über einer Aufgabe? -> direkt starten, sonst Menü offen lassen
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const item = el && el.closest ? el.closest('.slide-item') : null;
+    if (item) {
+      const pid = item.dataset.pid, tid = item.dataset.tid || null;
+      closeSlide();
+      if (pid) selectProject(pid, tid);
+    }
   }
   endPress();
 }
@@ -707,8 +713,8 @@ function onProjPointerCancel() {
   clearTimeout(press.holdTimer);
   if (press.opened) {
     suppressClick = true;
-    setTimeout(() => { suppressClick = false; }, 500);
-    closeSlide();
+    setTimeout(() => { suppressClick = false; }, 600);
+    // System hat die Geste abgebrochen -> Menü offen lassen, Auswahl per Tippen
   }
   endPress();
 }
@@ -724,15 +730,17 @@ function openSlide(projectId, btn) {
   const p = data.projects.find(x => x.id === projectId);
   if (!p) return;
   press.opened = true;
+  slideOpenedAt = Date.now();
   if (navigator.vibrate) navigator.vibrate(15);
 
   const overlay = document.createElement('div');
   overlay.className = 'slide-overlay';
   overlay.id = 'slideOverlay';
   overlay.oncontextmenu = (e) => e.preventDefault();
+  overlay.addEventListener('click', onSlideClick);
   const menu = document.createElement('div');
   menu.className = 'slide-menu';
-  let items = `<div class="slide-head" style="border-color:${p.color}">${esc(p.name)}</div>`;
+  let items = `<div class="slide-head" style="border-color:${p.color}">${esc(p.name)}<small>tippen oder ziehen</small></div>`;
   items += `<div class="slide-item" data-pid="${p.id}" data-tid="">⏱ Ganzes Boot</div>`;
   items += (p.tasks || []).map(t => `<div class="slide-item" data-pid="${p.id}" data-tid="${t.id}">${esc(t.name)}</div>`).join('');
   items += `<div class="slide-item slide-cancel" data-pid="" data-tid="">✕ Abbrechen</div>`;
@@ -768,6 +776,20 @@ function highlightSlideAt(x, y) {
 function closeSlide() {
   const o = document.getElementById('slideOverlay');
   if (o) o.remove();
+}
+// Tippen im offenen Menü (Fallback, wenn die Slide-Geste abgebrochen wurde)
+function onSlideClick(ev) {
+  const overlay = document.getElementById('slideOverlay');
+  if (!overlay) return;
+  const item = ev.target.closest('.slide-item');
+  if (item) {
+    const pid = item.dataset.pid, tid = item.dataset.tid || null;
+    closeSlide();
+    if (pid) selectProject(pid, tid);
+    return;
+  }
+  // Tipp auf den dunklen Hintergrund = abbrechen (nicht der Klick direkt nach dem Öffnen)
+  if (ev.target === overlay && Date.now() - slideOpenedAt > 350) closeSlide();
 }
 
 /* ---------- Navigation & Events ---------- */
