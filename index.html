@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Arbeitszeit-Tracker</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="appbar">
+    <h1 id="appTitle">Arbeitszeit</h1>
+    <span id="weekTotal" class="appbar-sub">–</span>
+  </header>
+
+  <main id="main">
+    <!-- Tracker -->
+    <section id="view-tracker" class="view">
+      <div class="status-card" id="statusCard">
+        <div class="status-label" id="statusLabel">Nicht eingestempelt</div>
+        <div class="timer" id="timer">00:00:00</div>
+        <div class="status-meta" id="statusMeta"></div>
+
+        <div id="trackerControls"></div>
+      </div>
+
+      <h2 class="section-title">Heute</h2>
+      <div id="todayList" class="entry-list"></div>
+      <div id="todayEmpty" class="empty">Noch keine Einträge heute.</div>
+    </section>
+
+    <!-- Einträge -->
+    <section id="view-entries" class="view" hidden>
+      <div class="toolbar">
+        <h2 class="section-title">Einträge</h2>
+        <button id="btnAddManual" class="btn btn-ghost">+ Manuell</button>
+      </div>
+      <div id="entriesList" class="entry-list"></div>
+      <div id="entriesEmpty" class="empty">Noch keine Einträge erfasst.</div>
+    </section>
+
+    <!-- Übersicht -->
+    <section id="view-report" class="view" hidden>
+      <div class="toolbar">
+        <h2 class="section-title">Übersicht</h2>
+        <select id="periodSelect" class="period-select">
+          <option value="week">Diese Woche</option>
+          <option value="lastweek">Letzte Woche</option>
+          <option value="month">Dieser Monat</option>
+          <option value="all">Gesamt</option>
+        </select>
+      </div>
+      <div class="report-total">
+        <span class="report-total-label">Summe</span>
+        <span class="report-total-value" id="reportTotal">0:00 h</span>
+      </div>
+      <div id="reportByProject" class="report-list"></div>
+      <button id="btnExport" class="btn btn-block btn-export">CSV exportieren</button>
+    </section>
+
+    <!-- Projekte -->
+    <section id="view-projects" class="view" hidden>
+      <div class="toolbar">
+        <h2 class="section-title">Projekte / Kunden</h2>
+        <button id="btnAddProject" class="btn btn-ghost">+ Neu</button>
+      </div>
+      <div id="projectList" class="project-list"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-view="tracker"><span class="tab-ico">⏱</span>Tracker</button>
+    <button class="tab" data-view="entries"><span class="tab-ico">≡</span>Einträge</button>
+    <button class="tab" data-view="report"><span class="tab-ico">∑</span>Übersicht</button>
+    <button class="tab" data-view="projects"><span class="tab-ico">★</span>Projekte</button>
+  </nav>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3 id="modalTitle">Titel</h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions">
+        <button id="modalCancel" class="btn btn-ghost">Abbrechen</button>
+        <button id="modalOk" class="btn btn-accent">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
