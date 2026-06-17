@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v13';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -109,11 +109,17 @@ function taskOptions(projectId, selectedId) {
   return '<option value=""' + (selectedId === '' ? ' selected' : '') + '>— (ganzes Boot)</option>' +
     tasks.map(t => `<option value="${t.id}"${t.id === selectedId ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
 }
+// zuletzt gewählte Aufgabe eines Boots (nur wenn sie noch existiert)
+function resolveLastTask(p) {
+  return (p && p.lastTaskId && findTask(p.id, p.lastTaskId)) ? p.lastTaskId : null;
+}
 
 /* ---------- Tracker-Aktionen ---------- */
 function startShift(projectId, taskId = null) {
   if (getRunning()) return;            // bereits eingestempelt
-  if (!data.projects.some(p => p.id === projectId)) return;
+  const proj = data.projects.find(p => p.id === projectId);
+  if (!proj) return;
+  proj.lastTaskId = taskId || null;    // letzte Aufgabe merken
   data.entries.push({
     id: uid(), projectId, taskId: taskId || null, start: Date.now(), end: null, breaks: [], note: ''
   });
@@ -140,6 +146,8 @@ function selectProject(projectId, taskId = null) {
   const br = activeBreak(running);                                // Wechsel: alte Schicht beenden,
   if (br) br.end = Date.now();
   running.end = Date.now();
+  const proj = data.projects.find(p => p.id === projectId);
+  if (proj) proj.lastTaskId = taskId;                            // letzte Aufgabe merken
   data.entries.push({ id: uid(), projectId, taskId, start: Date.now(), end: null, breaks: [], note: '' });
   save();
   renderAll();
@@ -180,8 +188,9 @@ function controlsHtml() {
   if (pinned.length) {
     html += '<div class="proj-grid">' + pinned.map(p => {
       const active = running && running.projectId === p.id;
-      const runTask = active && running.taskId ? taskName(p.id, running.taskId) : '';
-      const sub = runTask ? `<span class="pb-sub">${esc(runTask)}</span>` : '';
+      const shownTaskId = active ? (running.taskId || null) : resolveLastTask(p);
+      const tName = shownTaskId ? taskName(p.id, shownTaskId) : '';
+      const sub = tName ? `<span class="pb-sub">${esc(tName)}</span>` : '';
       const badge = active
         ? `<em class="run-tag">${br ? 'Pause' : 'läuft'}</em>`
         : ((p.tasks || []).length ? '<i class="task-arrow" aria-hidden="true">›</i>' : '');
@@ -844,7 +853,11 @@ document.getElementById('modalOk').addEventListener('click', () => {
 document.getElementById('main').addEventListener('click', (ev) => {
   if (suppressClick) { suppressClick = false; return; }   // Klick nach Slide-Auswahl ignorieren
   const startBtn = ev.target.closest('[data-start]');
-  if (startBtn) { selectProject(startBtn.dataset.start); return; }
+  if (startBtn) {
+    const proj = data.projects.find(p => p.id === startBtn.dataset.start);
+    selectProject(startBtn.dataset.start, proj ? resolveLastTask(proj) : null);
+    return;
+  }
   const act = ev.target.closest('[data-action]');
   if (act) {
     if (act.dataset.action === 'stop') stopShift();
@@ -886,7 +899,10 @@ document.getElementById('main').addEventListener('change', (ev) => {
     return;
   }
   const ss = ev.target.closest('[data-startselect]');
-  if (ss && ss.value) selectProject(ss.value);
+  if (ss && ss.value) {
+    const proj = data.projects.find(p => p.id === ss.value);
+    selectProject(ss.value, proj ? resolveLastTask(proj) : null);
+  }
 });
 
 /* ---------- Service Worker (mit Auto-Update) ---------- */
