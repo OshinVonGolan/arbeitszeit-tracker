@@ -645,9 +645,20 @@ document.getElementById('main').addEventListener('change', (ev) => {
   if (ss && ss.value) selectProject(ss.value);
 });
 
-/* ---------- Service Worker ---------- */
+/* ---------- Service Worker (mit Auto-Update) ---------- */
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    location.reload();   // neue Version aktiv -> einmal frisch laden
+  });
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      reg.update();
+    } catch (e) { /* offline o. ä. */ }
+  });
 }
 
 renderAll();
