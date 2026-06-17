@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -184,7 +184,7 @@ function controlsHtml() {
       const sub = runTask ? `<span class="pb-sub">${esc(runTask)}</span>` : '';
       const badge = active
         ? `<em class="run-tag">${br ? 'Pause' : 'läuft'}</em>`
-        : ((p.tasks || []).length ? '<i class="hold-hint">halten ⋯</i>' : '');
+        : ((p.tasks || []).length ? '<i class="task-arrow" aria-hidden="true">›</i>' : '');
       return `<button class="proj-btn${active ? ' active' : ''}" data-start="${p.id}" style="--c:${p.color}"><span class="pb-main"><span class="pb-name">${esc(p.name)}</span>${sub}</span>${badge}</button>`;
     }).join('') + '</div>';
   } else if (!running) {
