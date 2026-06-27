@@ -341,3 +341,6 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 #view-report .btn-block { margin-top: 12px; }
 #view-report .section-title { margin: 20px 4px 8px; }
 #view-report .backup-info { margin: 0 4px 12px; }
+
+/* Standard-Abstand auch über der Summen-Kachel (z. B. zur Datums-Zeile) */
+.report-total { margin-top: 12px; }
