@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v14';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -296,6 +296,13 @@ function renderEntries() {
 
 function periodRange(kind) {
   const now = Date.now();
+  if (kind === 'day') {
+    const v = (document.getElementById('reportDay') || {}).value;
+    const base = v ? new Date(v + 'T00:00:00') : new Date();
+    base.setHours(0, 0, 0, 0);
+    const s = base.getTime();
+    return [s, s + 24 * HOUR];
+  }
   if (kind === 'week') return [startOfWeek(now), Infinity];
   if (kind === 'lastweek') { const s = startOfWeek(now); return [s - 7 * 24 * HOUR, s]; }
   if (kind === 'month') return [startOfMonth(now), Infinity];
@@ -304,26 +311,42 @@ function periodRange(kind) {
 
 function renderReport() {
   const kind = document.getElementById('periodSelect').value;
+  const dayInput = document.getElementById('reportDay');
+  if (kind === 'day' && !dayInput.value) dayInput.value = dayKey(Date.now());   // Default: heute
+  dayInput.hidden = kind !== 'day';
   const [from, to] = periodRange(kind);
   const now = Date.now();
   const inRange = data.entries.filter(e => e.start >= from && e.start < to);
 
+  // Gruppieren: pro Projekt Gesamt + pro Aufgabe
   const byProj = {};
   let total = 0;
   for (const e of inRange) {
     const ms = netMs(e, now);
     total += ms;
-    byProj[e.projectId] = (byProj[e.projectId] || 0) + ms;
+    const g = byProj[e.projectId] || (byProj[e.projectId] = { total: 0, tasks: {} });
+    g.total += ms;
+    const tkey = e.taskId || '';
+    g.tasks[tkey] = (g.tasks[tkey] || 0) + ms;
   }
   document.getElementById('reportTotal').textContent = fmtHM(total) + ' h';
 
-  const rows = Object.entries(byProj).sort((a, b) => b[1] - a[1]);
+  const rows = Object.entries(byProj).sort((a, b) => b[1].total - a[1].total);
   const cont = document.getElementById('reportByProject');
   cont.innerHTML = rows.length
-    ? rows.map(([pid, ms]) => {
+    ? rows.map(([pid, g]) => {
         const p = project(pid);
-        return `<div class="report-row"><span class="dot" style="background:${p.color}"></span>
-          <span class="r-name">${esc(p.name)}</span><span class="r-val">${fmtHM(ms)} h</span></div>`;
+        const tasks = Object.entries(g.tasks).sort((a, b) => b[1] - a[1]);
+        // Aufschlüsselung weglassen, wenn die einzige Gruppe „ohne Aufgabe“ ist (= identisch zur Summe)
+        const showTasks = !(tasks.length === 1 && tasks[0][0] === '');
+        const taskHtml = showTasks ? `<div class="report-tasks">${tasks.map(([tid, ms]) => {
+          const name = tid ? (taskName(pid, tid) || '(gelöschte Aufgabe)') : '(ganzes Boot)';
+          return `<div class="report-task"><span class="rt-name">${esc(name)}</span><span class="rt-val">${fmtHM(ms)} h</span></div>`;
+        }).join('')}</div>` : '';
+        return `<div class="report-group">
+          <div class="report-row"><span class="dot" style="background:${p.color}"></span>
+            <span class="r-name">${esc(p.name)}</span><span class="r-val">${fmtHM(g.total)} h</span></div>
+          ${taskHtml}</div>`;
       }).join('')
     : '<div class="empty">Keine Einträge in diesem Zeitraum.</div>';
 }
@@ -821,6 +844,7 @@ document.getElementById('btnAddManual').addEventListener('click', addManualModal
 document.getElementById('btnAddProject').addEventListener('click', addProjectModal);
 document.getElementById('btnExport').addEventListener('click', exportCsv);
 document.getElementById('periodSelect').addEventListener('change', renderReport);
+document.getElementById('reportDay').addEventListener('change', renderReport);
 
 document.getElementById('btnBackup').addEventListener('click', exportBackup);
 document.getElementById('btnRestore').addEventListener('click', () => document.getElementById('restoreFile').click());

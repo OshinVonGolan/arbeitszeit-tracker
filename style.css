@@ -318,3 +318,11 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
   .modal-overlay { align-items: center; padding: 16px; }
   .modal { border-radius: 22px; }
 }
+
+/* Übersicht: Tagesauswahl + Aufgaben-Aufschlüsselung je Projekt */
+.period-day { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; }
+.report-group { display: flex; flex-direction: column; gap: 4px; }
+.report-tasks { display: flex; flex-direction: column; gap: 2px; padding: 2px 14px 4px 36px; }
+.report-task { display: flex; align-items: center; gap: 12px; padding: 4px 0; font-size: 0.9rem; opacity: 0.8; }
+.report-task .rt-name { flex: 1; }
+.report-task .rt-val { font-variant-numeric: tabular-nums; font-weight: 600; }
