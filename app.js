@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v15';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -146,9 +146,15 @@ function selectProject(projectId, taskId = null) {
   const br = activeBreak(running);                                // Wechsel: alte Schicht beenden,
   if (br) br.end = Date.now();
   running.end = Date.now();
+  // Fehlklick: war die alte Schicht < 1 Min, verwerfen und ihre Zeit dem nächsten Task zuschlagen
+  let start = Date.now();
+  if (netMs(running, Date.now()) < MIN) {
+    start = running.start;
+    data.entries = data.entries.filter(e => e.id !== running.id);
+  }
   const proj = data.projects.find(p => p.id === projectId);
   if (proj) proj.lastTaskId = taskId;                            // letzte Aufgabe merken
-  data.entries.push({ id: uid(), projectId, taskId, start: Date.now(), end: null, breaks: [], note: '' });
+  data.entries.push({ id: uid(), projectId, taskId, start, end: null, breaks: [], note: '' });
   save();
   renderAll();
 }
@@ -302,6 +308,10 @@ function periodRange(kind) {
     base.setHours(0, 0, 0, 0);
     const s = base.getTime();
     return [s, s + 24 * HOUR];
+  }
+  if (kind === 'today') {
+    const s = new Date(); s.setHours(0, 0, 0, 0);
+    return [s.getTime(), s.getTime() + 24 * HOUR];
   }
   if (kind === 'week') return [startOfWeek(now), Infinity];
   if (kind === 'lastweek') { const s = startOfWeek(now); return [s - 7 * 24 * HOUR, s]; }
