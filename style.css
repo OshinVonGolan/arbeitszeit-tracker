@@ -333,3 +333,11 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .period-select { flex: 0 0 auto; }
 .period-day-wrap { flex: 0 0 100%; display: flex; justify-content: flex-end; }
 .period-day { max-width: 100%; box-sizing: border-box; }
+
+/* Übersicht: flachere Summen-Kachel + einheitliche Abstände zwischen den Blöcken */
+.report-total { padding: 12px 18px; margin-bottom: 12px; }
+.report-total-value { font-size: 1.7rem; }
+#reportByProject { gap: 12px; }
+#view-report .btn-block { margin-top: 12px; }
+#view-report .section-title { margin: 20px 4px 8px; }
+#view-report .backup-info { margin: 0 4px 12px; }

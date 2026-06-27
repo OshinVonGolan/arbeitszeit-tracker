@@ -1,7 +1,7 @@
 /* Service Worker – App-Shell offline cachen.
    Wichtig: alle Netz-Zugriffe mit cache:'no-store', damit der 10-Min-HTTP-Cache
    von GitHub Pages neue Versionen nicht verzögert (sonst hängt die PWA hinterher). */
-const CACHE = 'azt-v21';
+const CACHE = 'azt-v22';
 const ASSETS = [
   './',
   './index.html',
