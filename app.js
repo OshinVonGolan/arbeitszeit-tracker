@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v16';
+const APP_VERSION = 'v17';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
