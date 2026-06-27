@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -952,6 +952,10 @@ if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.register('sw.js');
       reg.update();
     } catch (e) { /* offline o. ä. */ }
+  });
+  // Beim Zurückkehren in den Vordergrund (z. B. PWA-Resume) auf neue Version prüfen
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) navigator.serviceWorker.getRegistration().then(r => { if (r) r.update(); }).catch(() => {});
   });
 }
 
