@@ -326,3 +326,7 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .report-task { display: flex; align-items: center; gap: 12px; padding: 4px 0; font-size: 0.9rem; opacity: 0.8; }
 .report-task .rt-name { flex: 1; }
 .report-task .rt-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Mobile-Fix: Übersicht-Toolbar umbrechen, Datumsfeld nicht abschneiden */
+.toolbar { flex-wrap: wrap; }
+.period-select, .period-day { max-width: 100%; box-sizing: border-box; }
