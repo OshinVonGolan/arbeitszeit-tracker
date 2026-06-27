@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'v20';
+const APP_VERSION = 'v21';
 
 /* ---------- Datenmodell & Speicher ---------- */
 const STORE_KEY = 'azt_data_v1';
@@ -323,7 +323,9 @@ function renderReport() {
   const kind = document.getElementById('periodSelect').value;
   const dayInput = document.getElementById('reportDay');
   if (kind === 'day' && !dayInput.value) dayInput.value = dayKey(Date.now());   // Default: heute
-  dayInput.hidden = kind !== 'day';
+  const dayShow = kind === 'day';
+  dayInput.hidden = !dayShow;
+  if (dayInput.parentElement) dayInput.parentElement.hidden = !dayShow;   // ganze Datums-Zeile ein/aus
   const [from, to] = periodRange(kind);
   const now = Date.now();
   const inRange = data.entries.filter(e => e.start >= from && e.start < to);

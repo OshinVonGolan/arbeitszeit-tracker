@@ -327,8 +327,9 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .report-task .rt-name { flex: 1; }
 .report-task .rt-val { font-variant-numeric: tabular-nums; font-weight: 600; }
 
-/* Übersicht-Toolbar: Zeitraum-Dropdown + Datumsfeld nebeneinander, brechen als Gruppe um (mobil), Datum ragt nicht raus */
-.toolbar { flex-wrap: wrap; }
-.period-controls { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* Übersicht-Toolbar: „Übersicht" + Zeitraum-Dropdown bleiben oben in EINER Zeile (Dropdown rechts);
+   das Datumsfeld rutscht nur bei „Bestimmter Tag" rechtsbündig in die nächste Zeile, ohne rauszuragen. */
+.toolbar { flex-wrap: wrap; column-gap: 12px; row-gap: 8px; }
 .period-select { flex: 0 0 auto; }
-.period-day { flex: 0 1 auto; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.period-day-wrap { flex: 0 0 100%; display: flex; justify-content: flex-end; }
+.period-day { max-width: 100%; box-sizing: border-box; }
