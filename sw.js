@@ -1,5 +1,5 @@
 /* Service Worker – App-Shell offline cachen */
-const CACHE = 'azt-v17';
+const CACHE = 'azt-v18';
 const ASSETS = [
   './',
   './index.html',

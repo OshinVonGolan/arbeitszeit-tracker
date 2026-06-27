@@ -330,11 +330,3 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 /* Mobile-Fix: Übersicht-Toolbar umbrechen, Datumsfeld nicht abschneiden */
 .toolbar { flex-wrap: wrap; }
 .period-select, .period-day { max-width: 100%; box-sizing: border-box; }
-
-/* Bottom-Bar immer sichtbar: feste Viewport-Höhe (Flex-Spalte), nur der Inhalt scrollt
-   – behebt das iOS-PWA-Problem mit position:fixed-Leisten beim Scrollen. */
-body { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-.appbar { position: static; flex: 0 0 auto; }
-.backup-bar { flex: 0 0 auto; }
-#main { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 24px; }
-.tabbar { position: static; flex: 0 0 auto; }
