@@ -327,6 +327,8 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .report-task .rt-name { flex: 1; }
 .report-task .rt-val { font-variant-numeric: tabular-nums; font-weight: 600; }
 
-/* Mobile-Fix: Übersicht-Toolbar umbrechen, Datumsfeld nicht abschneiden */
+/* Übersicht-Toolbar: Zeitraum-Dropdown + Datumsfeld nebeneinander, brechen als Gruppe um (mobil), Datum ragt nicht raus */
 .toolbar { flex-wrap: wrap; }
-.period-select, .period-day { max-width: 100%; box-sizing: border-box; }
+.period-controls { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.period-select { flex: 0 0 auto; }
+.period-day { flex: 0 1 auto; min-width: 0; max-width: 100%; box-sizing: border-box; }

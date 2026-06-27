@@ -54,15 +54,17 @@
     <section id="view-report" class="view" hidden>
       <div class="toolbar">
         <h2 class="section-title">Übersicht</h2>
-        <select id="periodSelect" class="period-select">
-          <option value="today">Heute</option>
-          <option value="week">Diese Woche</option>
-          <option value="lastweek">Letzte Woche</option>
-          <option value="month">Dieser Monat</option>
-          <option value="all">Gesamt</option>
-          <option value="day">Bestimmter Tag</option>
-        </select>
-        <input type="date" id="reportDay" class="period-day" hidden />
+        <div class="period-controls">
+          <select id="periodSelect" class="period-select">
+            <option value="today">Heute</option>
+            <option value="week">Diese Woche</option>
+            <option value="lastweek">Letzte Woche</option>
+            <option value="month">Dieser Monat</option>
+            <option value="all">Gesamt</option>
+            <option value="day">Bestimmter Tag</option>
+          </select>
+          <input type="date" id="reportDay" class="period-day" hidden />
+        </div>
       </div>
       <div class="report-total">
         <span class="report-total-label">Summe</span>
